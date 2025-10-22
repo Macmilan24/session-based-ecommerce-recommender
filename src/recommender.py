@@ -47,16 +47,32 @@ class Recommender:
         Generates recommendations using a collaborative filtering approach combined
         with a contextual boost for items in the same category.
         """
+        # alternative query that was less efficient with MRR = 1.532
+        # query = """
+        #     MATCH (start_item:Item {id: $item_id})-[:BELONGS_TO]->(start_category:Category)
+        #     MATCH (start_item)-[r:CO_OCCURRED]-(rec_item:Item)
+        #     WHERE r.session_count IS NOT NULL AND r.event_weight IS NOT NULL
+        #     MATCH (rec_item)-[:BELONGS_TO]->(rec_category:Category)
+
+        #     WITH rec_item, start_category, rec_category, (r.session_count * r.event_weight) AS hybrid_base_score
+
+        #     WITH rec_item, hybrid_base_score * (CASE WHEN start_category = rec_category THEN $boost_factor ELSE 1.0 END) AS final_score
+
+        #     RETURN rec_item.id AS recommendation, final_score AS score
+        #     ORDER BY score DESC
+        #     LIMIT $limit
+        # """
 
         query = """
             MATCH (start_item:Item {id: $item_id})-[:BELONGS_TO]->(start_category:Category)
+
             MATCH (start_item)-[r:CO_OCCURRED]-(rec_item:Item)
-            WHERE r.session_count IS NOT NULL AND r.event_weight IS NOT NULL
+            WHERE r.session_count IS NOT NULL // Safety check
+            
             MATCH (rec_item)-[:BELONGS_TO]->(rec_category:Category)
-
-            WITH rec_item, start_category, rec_category, (r.session_count * r.event_weight) AS hybrid_base_score
-
-            WITH rec_item, hybrid_base_score * (CASE WHEN start_category = rec_category THEN $boost_factor ELSE 1.0 END) AS final_score
+            WITH rec_item, r.session_count AS base_score,
+                (CASE WHEN start_category = rec_category THEN $boost_factor ELSE 1.0 END) AS boost
+            WITH rec_item, (base_score * boost) AS final_score
 
             RETURN rec_item.id AS recommendation, final_score AS score
             ORDER BY score DESC
