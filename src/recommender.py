@@ -15,12 +15,12 @@ class Recommender:
 
     def get_recommendations(self, item_id: str, limit: int = 10) -> list[str]:
         query = """
-        MATCH (currentItem:Item {id: $item_id})
-        MATCH (currentItem)-[r:CO_OCCURRED]-(recommendedItem:Item)
-        RETURN recommendedItem.id AS recommendation, r.weight AS score
-        ORDER BY score DESC
-        LIMIT $limit
-        """
+            MATCH (currentItem:Item {id: $item_id})
+            MATCH (currentItem)-[r:CO_OCCURRED]-(recommendedItem:Item)
+            RETURN recommendedItem.id AS recommendation, r.event_weight AS score  
+            ORDER BY score DESC
+            LIMIT $limit
+            """
         with self.driver.session() as session:
             result = session.run(query, item_id=int(item_id), limit=limit)
             records = list(result)
@@ -30,18 +30,16 @@ class Recommender:
         query = """
         WITH datetime().epochMillis AS now
         MATCH (currentItem:Item {id: $item_id})-[r:CO_OCCURRED]-(recommendedItem:Item)
-        WITH recommendedItem, r.weight AS weight, 
-             toFloat(now - r.last_seen) / (1000 * 3600 * 24) AS ageInDays
+        WITH recommendedItem, r.event_weight AS weight, 
+            toFloat(now - r.last_seen) / (1000 * 3600 * 24) AS ageInDays
         WITH recommendedItem, (weight * exp(-$decay_rate * ageInDays)) AS score
         RETURN recommendedItem.id AS recommendation, score
         ORDER BY score DESC
         LIMIT $limit
         """
         with self.driver.session() as session:
-            # THE FIX: Convert item_id to an integer.
             result = session.run(query, item_id=int(item_id), limit=limit, decay_rate=decay_rate)
             records = list(result)
-            # The DB returns integers, so we convert them back to strings for consistency.
             return [record["recommendation"] for record in records]
     
     def get_contextual_recommendations(self, item_id: str, limit: int = 10, boost_factor: float = 1.5) -> list[str]:
@@ -49,31 +47,23 @@ class Recommender:
         Generates recommendations using a collaborative filtering approach combined
         with a contextual boost for items in the same category.
         """
+        # src/recommender.py - Inside the get_contextual_recommendations function
+
         query = """
-        // Part 1: Find the category of the starting item for contextual boosting
-        MATCH (start_item:Item {id: $item_id})-[:BELONGS_TO]->(start_category:Category)
+            MATCH (start_item:Item {id: $item_id})-[:BELONGS_TO]->(start_category:Category)
+            MATCH (start_item)-[r:CO_OCCURRED]-(rec_item:Item)
+            WHERE r.session_count IS NOT NULL AND r.event_weight IS NOT NULL
+            MATCH (rec_item)-[:BELONGS_TO]->(rec_category:Category)
 
-        // Part 2: The Collaborative Filtering traversal
-        MATCH (start_item)<-[:CONTAINS]-(session:Session)
-        MATCH (session)-[:CONTAINS]->(rec_item:Item)
-        WHERE start_item <> rec_item
+            WITH rec_item, start_category, rec_category, (r.session_count * r.event_weight) AS hybrid_base_score
 
-        // Part 3: Contextual Boosting with Categories
-        MATCH (rec_item)-[:BELONGS_TO]->(rec_category:Category)
+            WITH rec_item, hybrid_base_score * (CASE WHEN start_category = rec_category THEN $boost_factor ELSE 1.0 END) AS final_score
 
-        // Part 4: Calculate the score
-        WITH rec_item, start_category, rec_category, count(session) AS session_count
-        WITH rec_item, session_count * (CASE WHEN start_category = rec_category THEN $boost_factor ELSE 1.0 END) AS score
-
-        // Part 5: Return the final, ranked list
-        RETURN rec_item.id AS recommendation, score
-        ORDER BY score DESC
-        LIMIT $limit
+            RETURN rec_item.id AS recommendation, final_score AS score
+            ORDER BY score DESC
+            LIMIT $limit
         """
         with self.driver.session() as session:
-            # Note: We are back to using strings for IDs because our data loader is now consistent.
-            # However, if your categories were loaded as numbers, you might need to adjust.
-            # We will assume string IDs for everything for consistency.
             result = session.run(query, item_id=int(item_id), limit=limit, boost_factor=boost_factor)
             return [record["recommendation"] for record in result]
 
@@ -82,9 +72,7 @@ if __name__ == "__main__":
     
     recommender = Recommender(config.NEO4J_URI, config.NEO4J_USER, config.NEO4J_PASSWORD)
     
-    # We may need a different test item, as the new graph has different connections.
-    # Find a popular one with: MATCH (i:Item)-[r:CO_OCCURRED]-() RETURN i.id, r.weight ORDER BY r.weight DESC LIMIT 1
-    test_item_id = "285930" # Replace if you find a better one from the query
+    test_item_id = "285930" 
     
     try:
         print(f"\n--- Strategy 1: Standard Recommendations (Popularity) for item: '{test_item_id}' ---")

@@ -81,8 +81,6 @@ ehthumbs.db
 /neo4j/plugins/
 
 # API keys and local config overrides
-src/config.py
-config_local.py
 .env
 
 # Packaging and caches

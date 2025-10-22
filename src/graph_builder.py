@@ -123,11 +123,15 @@ class GraphBuilder:
         UNWIND $pairs AS pair
         MATCH (a:Item {id: pair.item_a})
         MATCH (b:Item {id: pair.item_b})
-        
+
         MERGE (a)-[r:CO_OCCURRED]-(b)
-        
-        ON CREATE SET r.weight = pair.score_to_add, r.last_seen = pair.timestamp
-        ON MATCH SET r.weight = r.weight + pair.score_to_add, r.last_seen = pair.timestamp
+
+        ON CREATE SET r.event_weight = pair.score_to_add,
+                    r.session_count = 1,
+                    r.last_seen = pair.timestamp
+        ON MATCH SET r.event_weight = r.event_weight + pair.score_to_add,
+                    r.session_count = r.session_count + 1,
+                    r.last_seen = pair.timestamp
         """
         
         batch_size = 20000
@@ -137,7 +141,7 @@ class GraphBuilder:
             self.run_query(query, parameters={'pairs': batch_data})
 
 if __name__ == "__main__":
-    print("Starting Step 1 of 'Smarter Recommender': Enriching the Graph...")
+    print("Starting Recommender: Enriching the Graph...")
     
     builder = GraphBuilder(config.NEO4J_URI, config.NEO4J_USER, config.NEO4J_PASSWORD)
     builder.clear_database()
