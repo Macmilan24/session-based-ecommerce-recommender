@@ -47,7 +47,6 @@ class Recommender:
         Generates recommendations using a collaborative filtering approach combined
         with a contextual boost for items in the same category.
         """
-        # src/recommender.py - Inside the get_contextual_recommendations function
 
         query = """
             MATCH (start_item:Item {id: $item_id})-[:BELONGS_TO]->(start_category:Category)
