@@ -1,6 +1,6 @@
 # Session-Based E-commerce Recommender
 
-This repository is a compact research/prototype demonstrating a "smarter" session-based recommender using a Neo4j graph. It ingests session events, item properties and a category tree to build:
+This repository is a compact research/prototype demonstrating a  session-based recommender using a Neo4j graph. It ingests session events, item properties and a category tree to build:
 
 - `Item`, `Session`, and `Category` nodes
 - `:CONTAINS` (Session->Item), `:BELONGS_TO` (Item->Category), and `:CO_OCCURRED` (Item-Item) relationships
@@ -20,7 +20,6 @@ Required files and minimal schema checks (used by `src/data_loader.py`):
 - `data/item_properties_part1.csv` and `data/item_properties_part2.csv` — concatenated; expected columns include `itemid`, `timestamp`, `value` (used to derive category id).
 - `data/category_tree.csv` — expected columns: `categoryid`, `parentid`.
 
-If you want a small demo dataset tracked, create a `data/demo/` folder and tell me — I can add proper `.gitignore` negation lines and commit the demo files.
 
 ---
 
@@ -85,9 +84,6 @@ python src/evaluate.py
 - Virtual envs: `.venv/`, `venv/`, etc.
 - Local secret files: `src/config.py`, `config_local.py`, `.env`
 - IDE/editor files and OS artifacts: `.vscode/`, `.idea/`, `.DS_Store`, `Thumbs.db`
-- Neo4j local folders if you use a `neo4j/` directory for DB files
-
-If you want me to add an explicit `data/demo/` tracked fixture, I will add the negation rules and commit the sample dataset.
 
 ---
 
@@ -97,10 +93,3 @@ If you want me to add an explicit `data/demo/` tracked fixture, I will add the n
 - Explainer (LLM) errors: `src/explainer.py` uses `google.generativeai`. If you get import or API errors, either install/configure the client and set `GOOGLE_API_KEY`, or skip explainer calls by editing `src/main.py`.
 - Memory problems when building item pairs: reduce `sample_fraction` in `graph_builder.ingest_data()` or ask me to implement streaming pair aggregation.
 
----
-
-- Add a Docker Compose example to spin up Neo4j and a demo dataset.
-- Create small unit tests and CI (GitHub Actions) that run the evaluation script on a tiny fixture dataset.
-- Replace the hard-coded Google API key in `src/config.py` with an environment-variable-backed loader and update `explainer.py` to be tolerant when the key is missing.
-
-Tell me which follow-up you'd prefer and I'll implement it.
