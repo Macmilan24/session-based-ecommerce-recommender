@@ -1,4 +1,4 @@
-# Smarter Session-Based E-commerce Recommender
+# Session-Based E-commerce Recommender
 
 This repository is a compact research/prototype demonstrating a "smarter" session-based recommender using a Neo4j graph. It ingests session events, item properties and a category tree to build:
 
